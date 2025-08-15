@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Board, BoardStore, Card } from './types';
+import { arrayMove } from '@dnd-kit/sortable';
 
 const useStore = create<BoardStore>()(
   persist(
@@ -40,6 +41,18 @@ const useStore = create<BoardStore>()(
                   lists: board.lists.map((list) =>
                     list.id === listId ? { ...list, title } : list
                   ),
+                }
+              : board
+          ),
+        })),
+
+      deleteList: (boardId: string, listId: string) =>
+        set((state) => ({
+          boards: state.boards.map((board) =>
+            board.id === boardId
+              ? {
+                  ...board,
+                  lists: board.lists.filter((list) => list.id !== listId),
                 }
               : board
           ),
@@ -172,6 +185,29 @@ const useStore = create<BoardStore>()(
                 }
               : board
           ),
+        })),
+
+      reorderList: (boardId: string, sourceIndex: number, destinationIndex: number) =>
+        set((state) => ({
+          boards: state.boards.map((board) =>
+            board.id === boardId
+              ? {
+                  ...board,
+                  lists: arrayMove(board.lists, sourceIndex, destinationIndex),
+                }
+              : board
+          ),
+        })),
+
+      reorderBoard: (sourceIndex: number, destinationIndex: number) =>
+        set((state) => ({
+          boards: arrayMove(state.boards, sourceIndex, destinationIndex),
+        })),
+
+      deleteBoard: (boardId: string) =>
+        set((state) => ({
+          boards: state.boards.filter((board) => board.id !== boardId),
+          currentBoard: state.currentBoard === boardId ? '' : state.currentBoard,
         })),
     }),
     {

@@ -1,13 +1,81 @@
 import React, { useState } from 'react';
-import { Plus, Layout } from 'lucide-react';
+import { Plus, Layout, Trash2, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import useStore from './store';
 import Board from './components/Board';
 import Modal from './components/Modal';
+
+// Draggable Board Item Component
+const DraggableBoardItem: React.FC<{
+  board: { id: string; title: string };
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}> = ({ board, isActive, onSelect, onDelete }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: board.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`w-full px-4 py-2 text-left rounded-lg transition-colors flex items-center justify-between group ${
+        isActive
+          ? 'bg-blue-100 text-blue-700'
+          : 'hover:bg-gray-100'
+      }`}
+    >
+      <button
+        onClick={onSelect}
+        className="flex items-center gap-2 flex-1"
+      >
+        <button
+          {...attributes}
+          {...listeners}
+          className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical size={16} />
+        </button>
+        <span className="truncate">{board.title}</span>
+      </button>
+      <button
+        onClick={onDelete}
+        className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Delete board"
+      >
+        <Trash2 size={16} />
+      </button>
+    </div>
+  );
+};
 
 function App() {
   const [isNewBoardModalOpen, setIsNewBoardModalOpen] = useState(false);
   const [newBoardTitle, setNewBoardTitle] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const {
     boards,
     currentBoard,
@@ -16,11 +84,15 @@ function App() {
     updateBoardBackground,
     addList,
     updateListTitle,
+    deleteList,
     addCard,
     updateCard,
     deleteCard,
     toggleCardCheck,
     reorderCard,
+    reorderList,
+    reorderBoard,
+    deleteBoard,
   } = useStore();
 
   const handleCreateBoard = () => {
@@ -28,6 +100,31 @@ function App() {
       addBoard(newBoardTitle);
       setNewBoardTitle('');
       setIsNewBoardModalOpen(false);
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const activeIndex = boards.findIndex((board) => board.id === active.id);
+      const overIndex = boards.findIndex((board) => board.id === over.id);
+      
+      if (activeIndex !== -1 && overIndex !== -1) {
+        reorderBoard(activeIndex, overIndex);
+      }
+    }
+    
+    setActiveId(null);
+  };
+
+  const handleDeleteBoard = (boardId: string) => {
+    if (window.confirm('Are you sure you want to delete this board? This action cannot be undone.')) {
+      deleteBoard(boardId);
     }
   };
 
@@ -58,21 +155,28 @@ function App() {
             <Plus size={20} />
             Create Board
           </button>
-          <div className="space-y-2">
-            {boards.map((board) => (
-              <button
-                key={board.id}
-                onClick={() => setCurrentBoard(board.id)}
-                className={`w-full px-4 py-2 text-left rounded-lg transition-colors ${
-                  board.id === currentBoard
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'hover:bg-gray-100'
-                }`}
-              >
-                {board.title}
-              </button>
-            ))}
-          </div>
+          
+          <DndContext
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={boards.map((board) => board.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {boards.map((board) => (
+                  <DraggableBoardItem
+                    key={board.id}
+                    board={board}
+                    isActive={board.id === currentBoard}
+                    onSelect={() => setCurrentBoard(board.id)}
+                    onDelete={() => handleDeleteBoard(board.id)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       </div>
 
@@ -118,11 +222,13 @@ function App() {
               }
               onAddList={addList}
               onUpdateList={updateListTitle}
+              onDeleteList={deleteList}
               onAddCard={addCard}
               onUpdateCard={updateCard}
               onDeleteCard={deleteCard}
               onToggleCardCheck={toggleCardCheck}
               onReorderCard={reorderCard}
+              onReorderList={reorderList}
             />
           </div>
         ) : null}

@@ -10,12 +10,17 @@ import { Plus, Settings } from 'lucide-react';
 import List from './List';
 import Modal from './Modal';
 import { Board as BoardType } from '../types';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 interface BoardProps {
   board: BoardType;
   onUpdateBoard: (updates: Partial<BoardType>) => void;
   onAddList: (boardId: string, title: string) => void;
   onUpdateList: (boardId: string, listId: string, title: string) => void;
+  onDeleteList: (boardId: string, listId: string) => void;
   onAddCard: (boardId: string, listId: string, title: string) => void;
   onUpdateCard: (boardId: string, listId: string, cardId: string, updates: any) => void;
   onDeleteCard: (boardId: string, listId: string, cardId: string) => void;
@@ -25,6 +30,7 @@ interface BoardProps {
     source: { listId: string; index: number },
     destination: { listId: string; index: number }
   ) => void;
+  onReorderList: (boardId: string, sourceIndex: number, destinationIndex: number) => void;
 }
 
 const Board: React.FC<BoardProps> = ({
@@ -32,11 +38,13 @@ const Board: React.FC<BoardProps> = ({
   onUpdateBoard,
   onAddList,
   onUpdateList,
+  onDeleteList,
   onAddCard,
   onUpdateCard,
   onDeleteCard,
   onToggleCardCheck,
   onReorderCard,
+  onReorderList,
 }) => {
   const [newListTitle, setNewListTitle] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -50,26 +58,36 @@ const Board: React.FC<BoardProps> = ({
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
-      const activeList = board.lists.find((list) =>
-        list.cards.some((card) => card.id === active.id)
-      );
-      const overList = board.lists.find((list) =>
-        list.cards.some((card) => card.id === over.id)
-      );
+      // Check if we're dragging a list
+      const activeListIndex = board.lists.findIndex((list) => list.id === active.id);
+      const overListIndex = board.lists.findIndex((list) => list.id === over.id);
+      
+      if (activeListIndex !== -1 && overListIndex !== -1) {
+        // Reordering lists
+        onReorderList(board.id, activeListIndex, overListIndex);
+      } else {
+        // Reordering cards
+        const activeList = board.lists.find((list) =>
+          list.cards.some((card) => card.id === active.id)
+        );
+        const overList = board.lists.find((list) =>
+          list.cards.some((card) => card.id === over.id)
+        );
 
-      if (activeList && overList) {
-        const activeIndex = activeList.cards.findIndex(
-          (card) => card.id === active.id
-        );
-        const overIndex = overList.cards.findIndex(
-          (card) => card.id === over.id
-        );
+        if (activeList && overList) {
+          const activeIndex = activeList.cards.findIndex(
+            (card) => card.id === active.id
+          );
+          const overIndex = overList.cards.findIndex(
+            (card) => card.id === over.id
+          );
 
-        onReorderCard(
-          board.id,
-          { listId: activeList.id, index: activeIndex },
-          { listId: overList.id, index: overIndex }
-        );
+          onReorderCard(
+            board.id,
+            { listId: activeList.id, index: activeIndex },
+            { listId: overList.id, index: overIndex }
+          );
+        }
       }
     }
 
@@ -81,6 +99,14 @@ const Board: React.FC<BoardProps> = ({
     
     if (!over) return;
 
+    // Check if we're dragging a list
+    const activeListIndex = board.lists.findIndex((list) => list.id === active.id);
+    if (activeListIndex !== -1) {
+      // Don't handle list drag over for now
+      return;
+    }
+
+    // Handle card drag over - check if dropping on a list
     const activeList = board.lists.find((list) =>
       list.cards.some((card) => card.id === active.id)
     );
@@ -126,18 +152,24 @@ const Board: React.FC<BoardProps> = ({
         onDragOver={handleDragOver}
       >
         <div className="flex gap-6 overflow-x-auto pb-4">
-          {board.lists.map((list) => (
-            <List
-              key={list.id}
-              list={list}
-              boardId={board.id}
-              onUpdateTitle={onUpdateList}
-              onAddCard={onAddCard}
-              onUpdateCard={onUpdateCard}
-              onDeleteCard={onDeleteCard}
-              onToggleCardCheck={onToggleCardCheck}
-            />
-          ))}
+          <SortableContext
+            items={board.lists.map((list) => list.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {board.lists.map((list) => (
+              <List
+                key={list.id}
+                list={list}
+                boardId={board.id}
+                onUpdateTitle={onUpdateList}
+                onDeleteList={onDeleteList}
+                onAddCard={onAddCard}
+                onUpdateCard={onUpdateCard}
+                onDeleteCard={onDeleteCard}
+                onToggleCardCheck={onToggleCardCheck}
+              />
+            ))}
+          </SortableContext>
 
           <div className="w-80 flex-shrink-0">
             <div className="bg-gray-100 rounded-lg p-4">

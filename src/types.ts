@@ -27,9 +27,13 @@ export interface BoardStore {
   updateBoardBackground: (id: string, color: string) => void;
   addList: (boardId: string, title: string) => void;
   updateListTitle: (boardId: string, listId: string, title: string) => void;
+  deleteList: (boardId: string, listId: string) => void;
   addCard: (boardId: string, listId: string, title: string) => void;
   updateCard: (boardId: string, listId: string, cardId: string, updates: Partial<Card>) => void;
   toggleCardCheck: (boardId: string, listId: string, cardId: string) => void;
   deleteCard: (boardId: string, listId: string, cardId: string) => void;
   reorderCard: (boardId: string, source: { listId: string; index: number }, destination: { listId: string; index: number }) => void;
+  reorderList: (boardId: string, sourceIndex: number, destinationIndex: number) => void;
+  reorderBoard: (sourceIndex: number, destinationIndex: number) => void;
+  deleteBoard: (boardId: string) => void;
 }
