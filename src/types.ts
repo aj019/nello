@@ -25,6 +25,7 @@ export interface BoardStore {
   addBoard: (title: string) => void;
   setCurrentBoard: (id: string) => void;
   updateBoardBackground: (id: string, color: string) => void;
+  updateBoardTitle: (id: string, title: string) => void;
   addList: (boardId: string, title: string) => void;
   updateListTitle: (boardId: string, listId: string, title: string) => void;
   deleteList: (boardId: string, listId: string) => void;

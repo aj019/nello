@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Layout, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Layout, Trash2, GripVertical, Edit3 } from 'lucide-react';
 import {
   DndContext,
   DragEndEvent,
@@ -19,9 +19,26 @@ import Modal from './components/Modal';
 const DraggableBoardItem: React.FC<{
   board: { id: string; title: string };
   isActive: boolean;
+  isEditing: boolean;
+  editingTitle: string;
   onSelect: () => void;
   onDelete: () => void;
-}> = ({ board, isActive, onSelect, onDelete }) => {
+  onStartEdit: () => void;
+  onSaveEdit: () => void;
+  onCancelEdit: () => void;
+  onTitleChange: (title: string) => void;
+}> = ({ 
+  board, 
+  isActive, 
+  isEditing, 
+  editingTitle, 
+  onSelect, 
+  onDelete, 
+  onStartEdit, 
+  onSaveEdit, 
+  onCancelEdit, 
+  onTitleChange 
+}) => {
   const {
     attributes,
     listeners,
@@ -41,28 +58,62 @@ const DraggableBoardItem: React.FC<{
     <div
       ref={setNodeRef}
       style={style}
-      className={`w-full px-4 py-2 text-left rounded-lg transition-colors flex items-center justify-between group ${
-        isActive
-          ? 'bg-blue-100 text-blue-700'
-          : 'hover:bg-gray-100'
+      className={`w-full px-4 py-3 text-left rounded-lg transition-all duration-200 flex items-center justify-between group ${
+        isEditing 
+          ? 'bg-white border-2 border-blue-200 shadow-md'
+          : isActive
+          ? 'bg-blue-100 text-blue-700 shadow-sm'
+          : 'hover:bg-gray-50 hover:shadow-sm'
       }`}
     >
       <button
         onClick={onSelect}
-        className="flex items-center gap-2 flex-1"
+        className="flex items-center gap-2 flex-1 min-w-0"
       >
         <button
           {...attributes}
           {...listeners}
-          className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+          className="p-1.5 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing rounded-md hover:bg-gray-100 transition-colors duration-150 flex-shrink-0"
         >
           <GripVertical size={16} />
         </button>
-        <span className="truncate">{board.title}</span>
+        {isEditing ? (
+          <div className="flex items-center gap-2 flex-1 transition-all duration-200 ease-in-out min-w-0">
+            <input
+              type="text"
+              value={editingTitle}
+              onChange={(e) => onTitleChange(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && onSaveEdit()}
+              onKeyDown={(e) => e.key === 'Escape' && onCancelEdit()}
+              onBlur={onSaveEdit}
+              placeholder="Press Enter to save, Escape to cancel"
+              className="max-w-40 w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm placeholder-gray-400"
+              autoFocus
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-1">
+            <span 
+              className="truncate cursor-pointer hover:text-blue-600 flex-1 transition-colors duration-150 font-medium"
+              onClick={onStartEdit}
+              onDoubleClick={onStartEdit}
+              title="Click to edit (Enter to save, Escape to cancel)"
+            >
+              {board.title}
+            </span>
+            <button
+              onClick={onStartEdit}
+              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all duration-150 opacity-0 group-hover:opacity-100"
+              title="Edit board"
+            >
+              <Edit3 size={14} />
+            </button>
+          </div>
+        )}
       </button>
       <button
         onClick={onDelete}
-        className="text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-200 rounded-md flex-shrink-0 ml-2"
         title="Delete board"
       >
         <Trash2 size={16} />
@@ -72,16 +123,13 @@ const DraggableBoardItem: React.FC<{
 };
 
 function App() {
-  const [isNewBoardModalOpen, setIsNewBoardModalOpen] = useState(false);
-  const [newBoardTitle, setNewBoardTitle] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const {
     boards,
     currentBoard,
     addBoard,
     setCurrentBoard,
     updateBoardBackground,
+    updateBoardTitle,
     addList,
     updateListTitle,
     deleteList,
@@ -95,12 +143,37 @@ function App() {
     deleteBoard,
   } = useStore();
 
+  const [isNewBoardModalOpen, setIsNewBoardModalOpen] = useState(false);
+  const [newBoardTitle, setNewBoardTitle] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null);
+  const [editingBoardTitle, setEditingBoardTitle] = useState('');
+
   const handleCreateBoard = () => {
     if (newBoardTitle.trim()) {
       addBoard(newBoardTitle);
       setNewBoardTitle('');
       setIsNewBoardModalOpen(false);
     }
+  };
+
+  const handleStartEditBoard = (board: { id: string; title: string }) => {
+    setEditingBoardId(board.id);
+    setEditingBoardTitle(board.title);
+  };
+
+  const handleSaveBoardTitle = (boardId: string) => {
+    if (editingBoardTitle.trim()) {
+      updateBoardTitle(boardId, editingBoardTitle.trim());
+      setEditingBoardId(null);
+      setEditingBoardTitle('');
+    }
+  };
+
+  const handleCancelEditBoard = () => {
+    setEditingBoardId(null);
+    setEditingBoardTitle('');
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -170,8 +243,14 @@ function App() {
                     key={board.id}
                     board={board}
                     isActive={board.id === currentBoard}
+                    isEditing={editingBoardId === board.id}
+                    editingTitle={editingBoardTitle}
                     onSelect={() => setCurrentBoard(board.id)}
                     onDelete={() => handleDeleteBoard(board.id)}
+                    onStartEdit={() => handleStartEditBoard(board)}
+                    onSaveEdit={() => handleSaveBoardTitle(board.id)}
+                    onCancelEdit={handleCancelEditBoard}
+                    onTitleChange={setEditingBoardTitle}
                   />
                 ))}
               </div>

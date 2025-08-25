@@ -23,6 +23,13 @@ const useStore = create<BoardStore>()(
           ),
         })),
 
+      updateBoardTitle: (id, title) =>
+        set((state) => ({
+          boards: state.boards.map((board) =>
+            board.id === id ? { ...board, title } : board
+          ),
+        })),
+
       addList: (boardId, title) =>
         set((state) => ({
           boards: state.boards.map((board) =>
